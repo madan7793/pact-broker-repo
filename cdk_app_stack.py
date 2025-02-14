@@ -44,7 +44,7 @@ class PactBrokerFargateStack(Stack):
         ecs_cluster = ecs.Cluster(self, "PactBrokerCluster", vpc=vpc)
 
         # Create an ECR repository if it doesn't exist
-        ecr_repo = ecr.Repository(self, "PactBrokerECR", repository_name="pact-broker")
+        ecr_repo = ecr.Repository(self, "PactBrokerECR", repository_name="cdk-hnb659fds-container-assets-727646472452-us-east-1")
 
         # Define Log Group
         log_group = logs.LogGroup(self, "PactBrokerLogGroup",
