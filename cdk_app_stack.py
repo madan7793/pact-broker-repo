@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_secretsmanager as secretsmanager,
     aws_logs as logs,
     aws_ecr as ecr,
+    aws_iam as iam,
     CfnOutput
 )
 from constructs import Construct
@@ -24,7 +25,7 @@ class PactBrokerFargateStack(Stack):
             generate_secret_string=secretsmanager.SecretStringGenerator(
                 secret_string_template="{\"username\":\"pactbrokeruser\"}",
                 generate_string_key="password",
-                exclude_characters="\"@/ " 
+                exclude_characters="\"@/ "
             )
         )
 
@@ -42,19 +43,25 @@ class PactBrokerFargateStack(Stack):
         # Create ECS Cluster
         ecs_cluster = ecs.Cluster(self, "PactBrokerCluster", vpc=vpc)
 
+        # Create an ECR repository if it doesn't exist
+        ecr_repo = ecr.Repository(self, "PactBrokerECR", repository_name="pact-broker")
+
         # Define Log Group
         log_group = logs.LogGroup(self, "PactBrokerLogGroup",
             retention=logs.RetentionDays.ONE_WEEK
         )
-
-        # Reference existing ECR Repository
-        ecr_repo = ecr.Repository.from_repository_name(self, "PactBrokerECR", "pactbroker")
 
         # Create Fargate Task Definition
         task_definition = ecs.FargateTaskDefinition(self, "PactBrokerTask",
             memory_limit_mib=512,
             cpu=256
         )
+
+        # Add execution role to allow pulling images from ECR
+        task_definition.add_to_execution_role_policy(iam.PolicyStatement(
+            actions=["ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage", "ecr:GetAuthorizationToken"],
+            resources=["*"]
+        ))
 
         container = task_definition.add_container("PactBrokerContainer",
             image=ecs.ContainerImage.from_ecr_repository(ecr_repo, "latest"),
@@ -81,4 +88,5 @@ class PactBrokerFargateStack(Stack):
         # Grant database access to ECS tasks
         db_cluster.connections.allow_default_port_from(fargate_service.service)
 
+        # Output the ALB DNS
         CfnOutput(self, "PactBrokerURL", value=fargate_service.load_balancer.load_balancer_dns_name)
