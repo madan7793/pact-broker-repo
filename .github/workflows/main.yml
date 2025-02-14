@@ -27,8 +27,8 @@ jobs:
       - name: Build and push Docker image
         run: |
           docker build -t pact-broker .
-          docker tag pact-broker 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
-          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
+          docker tag pact-broker 727646472452.dkr.ecr.us-east-1.amazonaws.com/cdk-hnb659fds-container-assets-727646472452-us-east-1:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/cdk-hnb659fds-container-assets-727646472452-us-east-1:latest
 
       - name: Install AWS CDK
         run: npm install -g aws-cdk
