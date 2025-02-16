@@ -1,0 +1,3 @@
+pact-python
+requests
+flask
