@@ -16,20 +16,19 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-          cache: 'npm'
 
       - name: Install Consumer Dependencies
         run: |
           cd consumer
-          npm install @pact-foundation/pact --save-dev
           npm install
+
+      - name: Install Pact CLI
+        run: npm install -g @pact-foundation/pact-cli
 
       - name: Start Pact Mock Server
         run: |
-          cd consumer
-          npx pact mock-service --port 1234 --pact-dir ./consumer/pacts &  # Run in background
-          sleep 5  # Ensure it starts before running tests
-          curl --retry 5 --retry-connrefused http://localhost:1234 || exit 1  # Health check
+          npx pact-mock-service start --port 1234 --pact-dir ./consumer/pacts &
+          sleep 5  # Ensure mock service is up
 
       - name: Run Consumer Pact Tests
         run: |
@@ -41,7 +40,7 @@ jobs:
           cd consumer
           npm run pact:publish
         env:
-          PACT_BROKER_BASE_URL: http://localhost:9292
+          PACT_BROKER_BASE_URL: http://localhost:9292  # Running locally
 
   provider-verification:
     needs: consumer-tests
@@ -52,7 +51,7 @@ jobs:
         ports:
           - "9292:9292"
         env:
-          PACT_BROKER_DATABASE_URL: "postgres://user:password@localhost:5432/pactbroker"
+          PACT_BROKER_DATABASE_URL: "postgres://user:password@db:5432/pactbroker"
         options: >-
           --health-cmd "curl -f http://localhost:9292" 
           --health-interval 10s 
@@ -86,12 +85,11 @@ jobs:
         run: |
           cd provider
           python app.py &  # Run in background
-          sleep 10  # Ensure it is fully started before testing
-          curl --retry 5 --retry-connrefused http://localhost:5000 || exit 1  # Health check
+          sleep 10  # Give it time to start
 
       - name: Verify Provider with Pact Broker
         run: |
           cd provider
           python test_provider.py
         env:
-          PACT_BROKER_BASE_URL: http://localhost:9292
+          PACT_BROKER_BASE_URL: http://localhost:9292  # Running locally
