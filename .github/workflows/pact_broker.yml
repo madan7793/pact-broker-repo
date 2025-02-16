@@ -1,4 +1,4 @@
-name: Pact Broker Setup with Consumer and Provider on AWS
+name: Deploy Pact Broker with Consumer and Provider on AWS
 
 on:
   push:
@@ -6,10 +6,19 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 727646472452.dkr.ecr.us-east-1.amazonaws.com
+  ECS_CLUSTER: my-cluster
+  SUBNETS: subnet-096f334f8d5a24458,subnet-016bc7424ba3c96db
+  SECURITY_GROUPS: sg-0804460ade80f7baf
+  SERVICES: "pact-broker consumer provider"
+
 jobs:
   deploy:
-    name: Deploy and Test Pact Broker, Consumer, and Provider on AWS
+    name: Deploy Pact Services to AWS ECS
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,78 +28,93 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Ensure ECS Cluster Exists
         run: |
-          CLUSTER_NAME="my-cluster"
-          if ! aws ecs describe-clusters --clusters $CLUSTER_NAME --query "clusters[*].clusterName" --output text | grep -q $CLUSTER_NAME; then
+          if ! aws ecs describe-clusters --clusters ${{ env.ECS_CLUSTER }} --query "clusters[*].clusterName" --output text | grep -q ${{ env.ECS_CLUSTER }}; then
             echo "ECS cluster does not exist. Creating..."
-            aws ecs create-cluster --cluster-name $CLUSTER_NAME
+            aws ecs create-cluster --cluster-name ${{ env.ECS_CLUSTER }}
           else
             echo "ECS cluster exists."
           fi
 
-      - name: Force Logout and Login to Amazon ECR
+      - name: Authenticate with Amazon ECR
         run: |
-          docker logout 727646472452.dkr.ecr.us-east-1.amazonaws.com || true
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 727646472452.dkr.ecr.us-east-1.amazonaws.com
+          aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
 
-      - name: Verify ECR Repositories Exist
+      - name: Verify and Create ECR Repositories
         run: |
-          for repo in pact-broker consumer provider; do
-            aws ecr describe-repositories --repository-names $repo || aws ecr create-repository --repository-name $repo
+          for repo in ${{ env.SERVICES }}; do
+            if ! aws ecr describe-repositories --repository-names $repo --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+              echo "Creating ECR repository: $repo"
+              aws ecr create-repository --repository-name $repo --region ${{ env.AWS_REGION }}
+            else
+              echo "ECR repository $repo already exists."
+            fi
           done
 
       - name: Verify Required Directories Exist
         run: |
-          for dir in ./pact-broker ./consumer ./provider; do
-            test -d $dir || (echo "Error: $dir directory not found" && exit 1)
+          for dir in ${{ env.SERVICES }}; do
+            if [ ! -d "./$dir" ]; then
+              echo "Error: $dir directory not found!" && exit 1
+            fi
           done
 
       - name: Build and Push Docker Images
         run: |
-          for service in pact-broker consumer provider; do
-            docker build -t $service ./$service || (echo "Failed to build $service image" && exit 1)
-            docker tag $service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/$service:latest
-            docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/$service:latest
+          for service in ${{ env.SERVICES }}; do
+            echo "Building image for $service..."
+            docker build -t $service ./$service || { echo "Failed to build $service image"; exit 1; }
+            docker tag $service:latest ${{ env.ECR_REGISTRY }}/$service:latest
+            docker push ${{ env.ECR_REGISTRY }}/$service:latest
           done
 
-      - name: Register and Deploy ECS Services
+      - name: Register Task Definitions and Deploy Services
         run: |
-          for service in pact-broker consumer provider; do
-            aws ecs register-task-definition --family $service \
-              --execution-role-arn arn:aws:iam::727646472452:role/ecsTaskExecutionRole \
-              --network-mode awsvpc \
-              --requires-compatibilities FARGATE \
-              --cpu "256" \
-              --memory "512" \
-              --container-definitions '[
-                {
-                  "name": "'$service'",
-                  "image": "727646472452.dkr.ecr.us-east-1.amazonaws.com/'$service':latest",
-                  "memory": 512,
-                  "cpu": 256,
-                  "essential": true,
-                  "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                      "awslogs-group": "/ecs/'$service'",
-                      "awslogs-region": "us-east-1",
-                      "awslogs-stream-prefix": "ecs"
+          for service in ${{ env.SERVICES }}; do
+            TASK_DEFINITION=$(aws ecs describe-task-definition --task-definition $service --query "taskDefinition.taskDefinitionArn" --output text 2>/dev/null || echo "")
+
+            if [ -z "$TASK_DEFINITION" ]; then
+              echo "Registering new task definition for $service..."
+              aws ecs register-task-definition --family $service \
+                --execution-role-arn arn:aws:iam::727646472452:role/ecsTaskExecutionRole \
+                --network-mode awsvpc \
+                --requires-compatibilities FARGATE \
+                --cpu "256" --memory "512" \
+                --container-definitions "[
+                  {
+                    \"name\": \"$service\",
+                    \"image\": \"${{ env.ECR_REGISTRY }}/$service:latest\",
+                    \"memory\": 512,
+                    \"cpu\": 256,
+                    \"essential\": true,
+                    \"logConfiguration\": {
+                      \"logDriver\": \"awslogs\",
+                      \"options\": {
+                        \"awslogs-group\": \"/ecs/$service\",
+                        \"awslogs-region\": \"${{ env.AWS_REGION }}\",
+                        \"awslogs-stream-prefix\": \"ecs\"
+                      }
                     }
                   }
-                }
-              ]'
-            aws ecs create-service --cluster my-cluster --service-name $service \
-              --task-definition $service --desired-count 1 --launch-type FARGATE \
-              --network-configuration "awsvpcConfiguration={subnets=[subnet-096f334f8d5a24458,subnet-016bc7424ba3c96db],securityGroups=[sg-0804460ade80f7baf],assignPublicIp=ENABLED}"
-          done
+                ]"
+            else
+              echo "Task definition for $service already exists. Using existing one."
+            fi
 
-      - name: Deploy Services on AWS ECS
-        run: |
-          for service in pact-broker consumer provider; do
-            aws ecs update-service --cluster my-cluster --service $service --force-new-deployment
+            SERVICE_EXISTS=$(aws ecs describe-services --cluster ${{ env.ECS_CLUSTER }} --services $service --query "services[*].serviceName" --output text 2>/dev/null)
+
+            if [ -z "$SERVICE_EXISTS" ]; then
+              echo "Creating ECS service for $service..."
+              aws ecs create-service --cluster ${{ env.ECS_CLUSTER }} --service-name $service \
+                --task-definition $service --desired-count 1 --launch-type FARGATE \
+                --network-configuration "awsvpcConfiguration={subnets=[${{ env.SUBNETS }}],securityGroups=[${{ env.SECURITY_GROUPS }}],assignPublicIp=ENABLED}"
+            else
+              echo "Updating ECS service for $service..."
+              aws ecs update-service --cluster ${{ env.ECS_CLUSTER }} --service $service --force-new-deployment
+            fi
           done
 
       - name: Wait for Services to Start
@@ -98,31 +122,34 @@ jobs:
 
       - name: Verify Services are Running
         run: |
-          for service in pact-broker consumer provider; do
-            curl -f http://$service.my-domain.com || (echo "$service service failed to start" && exit 1)
+          for service in ${{ env.SERVICES }}; do
+            STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://$service.my-domain.com || echo "000")
+            if [ "$STATUS_CODE" -ne 200 ]; then
+              echo "Error: $service is not responding (HTTP $STATUS_CODE)" && exit 1
+            fi
           done
 
       - name: Run Consumer Pact Tests
-        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer npm test
+        run: docker run --rm ${{ env.ECR_REGISTRY }}/consumer npm test
 
       - name: Publish Pact Contracts to Pact Broker
         run: |
-          docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer npx pact-cli publish /pacts \
+          docker run --rm ${{ env.ECR_REGISTRY }}/consumer npx pact-cli publish /pacts \
             --consumer-app-version=$(git rev-parse --short HEAD) \
             --broker-base-url=http://pact-broker.my-domain.com
 
       - name: Run Provider Verification Against Pact Broker
-        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider npm test
+        run: docker run --rm ${{ env.ECR_REGISTRY }}/provider npm test
 
       - name: Cleanup Old Docker Images
         if: always()
         run: |
-          for repo in pact-broker consumer provider; do
-            aws ecr batch-delete-image --repository-name $repo --image-ids imageTag=old-tag
+          for repo in ${{ env.SERVICES }}; do
+            aws ecr batch-delete-image --repository-name $repo --image-ids imageTag=old-tag || true
           done
 
       - name: Output Service URLs
         run: |
-          for service in pact-broker consumer provider; do
+          for service in ${{ env.SERVICES }}; do
             echo "$service Service is running at http://$service.my-domain.com"
           done
