@@ -14,8 +14,15 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Install Docker Compose (if not available)
+        run: |
+          if ! command -v docker-compose &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y docker-compose
+          fi
+
       - name: Start Services with Docker Compose
-        run: docker-compose up -d
+        run: docker compose up -d
 
       - name: Wait for Services to Start
         run: sleep 15
@@ -43,7 +50,7 @@ jobs:
 
       - name: Cleanup Docker Containers
         if: always()
-        run: docker-compose down
+        run: docker compose down
 
       - name: Output Service URLs
         run: |
