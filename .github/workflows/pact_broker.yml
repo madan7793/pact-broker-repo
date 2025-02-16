@@ -1,18 +1,18 @@
-name: Deploy Pact Broker, Consumer, and Provider to AWS EC2
+name: Pact Broker Setup with Consumer and Provider on AWS
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  deploy-ec2:
-    name: Deploy Pact Broker, Consumer, and Provider on AWS EC2
+  deploy:
+    name: Deploy and Test Pact Broker, Consumer, and Provider on AWS
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -21,44 +21,76 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Build Docker Images
+      - name: Force Logout and Login to Amazon ECR
         run: |
-          docker build -t pact-broker pact-broker/
-          docker build -t consumer consumer/
-          docker build -t provider provider/
+          docker logout 727646472452.dkr.ecr.us-east-1.amazonaws.com || true
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 727646472452.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Push Images to AWS ECR
+      - name: Verify ECR Repositories Exist
         run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker
-          docker tag pact-broker:latest ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
-          docker tag consumer:latest ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
-          docker tag provider:latest ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
+          aws ecr describe-repositories --repository-names pact-broker || aws ecr create-repository --repository-name pact-broker
+          aws ecr describe-repositories --repository-names consumer-service || aws ecr create-repository --repository-name consumer-service
+          aws ecr describe-repositories --repository-names provider-service || aws ecr create-repository --repository-name provider-service
 
-      - name: Deploy to EC2
+      - name: Verify Required Directories Exist
         run: |
-          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
-            # Pull latest images
-            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
-            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
-            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
-            
-            # Stop and remove existing containers
-            docker stop pact-broker || true
-            docker stop consumer || true
-            docker stop provider || true
-            docker rm pact-broker || true
-            docker rm consumer || true
-            docker rm provider || true
+          test -d ./pact-broker || (echo "Error: ./pact-broker directory not found" && exit 1)
+          test -d ./consumer || (echo "Error: ./consumer directory not found" && exit 1)
+          test -d ./provider || (echo "Error: ./provider directory not found" && exit 1)
 
-            # Run Pact Broker
-            docker run -d --name pact-broker -p 8080:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+      - name: Build and Push Docker Images
+        run: |
+          docker build -t pact-broker ./pact-broker || (echo "Failed to build pact-broker image" && exit 1)
+          docker tag pact-broker:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
 
-            # Run Consumer
-            docker run -d --name consumer -p 5001:5000 --env PACT_BROKER_URL=http://${{ secrets.EC2_PUBLIC_IP }}:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
+          docker build -t consumer-service ./consumer || (echo "Failed to build consumer-service image" && exit 1)
+          docker tag consumer-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
 
-            # Run Provider
-            docker run -d --name provider -p 5002:5000 --env PACT_BROKER_URL=http://${{ secrets.EC2_PUBLIC_IP }}:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
-          EOF
+          docker build -t provider-service ./provider || (echo "Failed to build provider-service image" && exit 1)
+          docker tag provider-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
+
+      - name: Deploy Services on AWS ECS
+        run: |
+          aws ecs update-service --cluster my-cluster --service pact-broker --force-new-deployment || echo "Pact Broker service does not exist."
+          aws ecs update-service --cluster my-cluster --service consumer-service --force-new-deployment || echo "Consumer service does not exist."
+          aws ecs update-service --cluster my-cluster --service provider-service --force-new-deployment || echo "Provider service does not exist."
+
+      - name: Wait for Services to Start
+        run: sleep 60
+
+      - name: Verify Pact Broker is Running
+        run: curl -f http://pact-broker.my-domain.com || (echo "Pact Broker failed to start" && exit 1)
+
+      - name: Verify Consumer Service is Running
+        run: curl -f http://consumer.my-domain.com || (echo "Consumer service failed to start" && exit 1)
+
+      - name: Verify Provider Service is Running
+        run: curl -f http://provider.my-domain.com || (echo "Provider service failed to start" && exit 1)
+
+      - name: Run Consumer Pact Tests
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npm test
+
+      - name: Publish Pact Contracts to Pact Broker
+        run: |
+          docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npx pact-cli publish /pacts \
+            --consumer-app-version=$(git rev-parse --short HEAD) \
+            --broker-base-url=http://pact-broker.my-domain.com
+
+      - name: Run Provider Verification Against Pact Broker
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service npm test
+
+      - name: Cleanup Old Docker Images
+        if: always()
+        run: |
+          aws ecr batch-delete-image --repository-name pact-broker --image-ids imageTag=old-tag
+          aws ecr batch-delete-image --repository-name consumer-service --image-ids imageTag=old-tag
+          aws ecr batch-delete-image --repository-name provider-service --image-ids imageTag=old-tag
+
+      - name: Output Service URLs
+        run: |
+          echo "Pact Broker is running at http://pact-broker.my-domain.com"
+          echo "Consumer Service is running at http://consumer.my-domain.com"
+          echo "Provider Service is running at http://provider.my-domain.com"
