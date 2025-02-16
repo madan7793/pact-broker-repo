@@ -83,6 +83,8 @@ jobs:
                     "memory": 512,
                     "cpu": 256,
                     "essential": true,
+                    "requiresCompatibilities": ["FARGATE"],
+                    "networkMode": "awsvpc",
                     "logConfiguration": {
                       "logDriver": "awslogs",
                       "options": {
