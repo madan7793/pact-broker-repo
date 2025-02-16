@@ -1,95 +1,52 @@
-name: Pact CI/CD
+name: Pact Broker Setup with Consumer and Provider on Docker
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
-  consumer-tests:
+  deploy:
+    name: Deploy and Test Pact Broker, Consumer, and Provider
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+      - name: Start Services with Docker Compose
+        run: docker-compose up -d
 
-      - name: Install Consumer Dependencies
-        run: |
-          cd consumer
-          npm install
+      - name: Wait for Services to Start
+        run: sleep 15
 
-      - name: Install Pact CLI
-        run: npm install -g @pact-foundation/pact-cli
+      - name: Verify Pact Broker is Running
+        run: curl -f http://localhost:9292 || (echo "Pact Broker failed to start" && exit 1)
 
-      - name: Start Pact Mock Server
-        run: |
-          npx pact-mock-service start --port 6000 --pact-dir ./consumer/pacts &
-          sleep 5  # Ensure mock service is up
+      - name: Verify Consumer Service is Running
+        run: curl -f http://localhost:3000 || (echo "Consumer service failed to start" && exit 1)
+
+      - name: Verify Provider Service is Running
+        run: curl -f http://localhost:4000 || (echo "Provider service failed to start" && exit 1)
 
       - name: Run Consumer Pact Tests
+        run: docker exec consumer-service npm test
+
+      - name: Publish Pact Contracts to Pact Broker
         run: |
-          cd consumer
-          npm test
+          docker exec consumer-service npx pact-cli publish /pacts \
+            --consumer-app-version=$(git rev-parse --short HEAD) \
+            --broker-base-url=http://pact-broker:9292
 
-      - name: Publish Pact Contract
+      - name: Run Provider Verification Against Pact Broker
+        run: docker exec provider-service npm test
+
+      - name: Cleanup Docker Containers
+        if: always()
+        run: docker-compose down
+
+      - name: Output Service URLs
         run: |
-          cd consumer
-          npm run pact:publish
-        env:
-          PACT_BROKER_BASE_URL: http://localhost:9292  # Running locally
-
-  provider-verification:
-    needs: consumer-tests
-    runs-on: ubuntu-latest
-    services:
-      pact-broker:
-        image: pactfoundation/pact-broker
-        ports:
-          - "9292:9292"
-        env:
-          PACT_BROKER_DATABASE_URL: "postgres://user:password@db:5432/pactbroker"
-        options: >-
-          --health-cmd "curl -f http://localhost:9292" 
-          --health-interval 10s 
-          --health-timeout 5s 
-          --health-retries 5
-
-      db:
-        image: postgres
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: pactbroker
-        ports:
-          - "5432:5432"
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Install Provider Dependencies
-        run: |
-          cd provider
-          pip install -r requirements.txt
-
-      - name: Start Provider Service
-        run: |
-          cd provider
-          python app.py &  # Run in background
-          sleep 10  # Give it time to start
-
-      - name: Verify Provider with Pact Broker
-        run: |
-          cd provider
-          python test_provider.py
-        env:
-          PACT_BROKER_BASE_URL: http://localhost:9292  # Running locally
+          echo "Pact Broker is running at http://localhost:9292"
+          echo "Consumer Service is running at http://localhost:3000"
+          echo "Provider Service is running at http://localhost:4000"
