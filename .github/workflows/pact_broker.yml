@@ -23,25 +23,27 @@ jobs:
 
       - name: Login to Amazon ECR
         run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REPOSITORY }}
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 727646472452.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Build and Push Docker Images
         run: |
           docker build -t pact-broker ./pact-broker
-          docker tag pact-broker:latest ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+          docker tag pact-broker:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
+
           docker build -t consumer-service ./consumer
-          docker tag consumer-service:latest ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service:latest
+          docker tag consumer-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
+
           docker build -t provider-service ./provider
-          docker tag provider-service:latest ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service:latest
-          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service:latest
+          docker tag provider-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
+          docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
 
       - name: Deploy Services on AWS ECS
         run: |
-          aws ecs update-service --cluster my-cluster --service pact-broker --force-new-deployment
-          aws ecs update-service --cluster my-cluster --service consumer-service --force-new-deployment
-          aws ecs update-service --cluster my-cluster --service provider-service --force-new-deployment
+          aws ecs update-service --cluster my-cluster --service pact-broker --force-new-deployment || echo "Pact Broker service does not exist."
+          aws ecs update-service --cluster my-cluster --service consumer-service --force-new-deployment || echo "Consumer service does not exist."
+          aws ecs update-service --cluster my-cluster --service provider-service --force-new-deployment || echo "Provider service does not exist."
 
       - name: Wait for Services to Start
         run: sleep 60
@@ -56,16 +58,16 @@ jobs:
         run: curl -f http://provider.my-domain.com || (echo "Provider service failed to start" && exit 1)
 
       - name: Run Consumer Pact Tests
-        run: docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service npm test
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npm test
 
       - name: Publish Pact Contracts to Pact Broker
         run: |
-          docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service npx pact-cli publish /pacts \
+          docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npx pact-cli publish /pacts \
             --consumer-app-version=$(git rev-parse --short HEAD) \
             --broker-base-url=http://pact-broker.my-domain.com
 
       - name: Run Provider Verification Against Pact Broker
-        run: docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service npm test
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service npm test
 
       - name: Cleanup Old Docker Images
         if: always()
