@@ -27,8 +27,9 @@ jobs:
       - name: Start Pact Mock Server
         run: |
           cd consumer
-          npx pact-cli service start --port 1234 --pact-dir ./pacts &  # Run in background
+          npx pact mock-service --port 1234 --pact-dir ./pacts &  # Run in background
           sleep 5  # Ensure it starts before running tests
+          curl --retry 5 --retry-connrefused http://localhost:1234 || exit 1  # Health check
 
       - name: Run Consumer Pact Tests
         run: |
@@ -86,6 +87,7 @@ jobs:
           cd provider
           python app.py &  # Run in background
           sleep 10  # Ensure it is fully started before testing
+          curl --retry 5 --retry-connrefused http://localhost:5000 || exit 1  # Health check
 
       - name: Verify Provider with Pact Broker
         run: |
