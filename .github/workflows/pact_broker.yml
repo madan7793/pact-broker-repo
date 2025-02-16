@@ -21,6 +21,16 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
+      - name: Ensure ECS Cluster Exists
+        run: |
+          CLUSTER_NAME="my-cluster"
+          if ! aws ecs describe-clusters --clusters $CLUSTER_NAME --query "clusters[*].clusterName" --output text | grep -q $CLUSTER_NAME; then
+            echo "ECS cluster does not exist. Creating..."
+            aws ecs create-cluster --cluster-name $CLUSTER_NAME
+          else
+            echo "ECS cluster exists."
+          fi
+
       - name: Force Logout and Login to Amazon ECR
         run: |
           docker logout 727646472452.dkr.ecr.us-east-1.amazonaws.com || true
