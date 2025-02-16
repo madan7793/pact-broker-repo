@@ -1,4 +1,4 @@
-name: Pact CI/CD
+name: Deploy Pact Broker, Consumer, and Provider to AWS EC2
 
 on:
   push:
@@ -6,82 +6,59 @@ on:
       - main
 
 jobs:
-  consumer-tests:
+  deploy-ec2:
+    name: Deploy Pact Broker, Consumer, and Provider on AWS EC2
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install Consumer Dependencies
-        run: |
-          cd consumer
-          npm install
-
-      - name: Run Consumer Pact Tests
-        run: |
-          cd consumer
-          npm test
-
-      - name: Publish Pact Contract
-        run: |
-          cd consumer
-          npm run pact:publish
-        env:
-          PACT_BROKER_BASE_URL: http://localhost:9292  # Update if needed
-
-  provider-verification:
-    needs: consumer-tests
-    runs-on: ubuntu-latest
-    services:
-      pact-broker:
-        image: pactfoundation/pact-broker
-        ports:
-          - "9292:9292"
-        env:
-          PACT_BROKER_DATABASE_URL: "postgres://user:password@localhost:5432/pactbroker"
-        options: >-
-          --health-cmd "curl -f http://localhost:9292" 
-          --health-interval 10s 
-          --health-timeout 5s 
-          --health-retries 5
-      db:
-        image: postgres
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: pactbroker
-        ports:
-          - "5432:5432"
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
-          python-version: "3.10"
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: Install Provider Dependencies
+      - name: Build Docker Images
         run: |
-          cd provider
-          pip install -r requirements.txt
+          docker build -t pact-broker pact-broker/
+          docker build -t consumer consumer/
+          docker build -t provider provider/
 
-      - name: Start Provider Service
+      - name: Push Images to AWS ECR
         run: |
-          cd provider
-          python app.py &  # Run in background
-          sleep 5  # Give it time to start
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REPOSITORY }}
+          docker tag pact-broker:latest ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+          docker tag consumer:latest ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
+          docker tag provider:latest ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
 
-      - name: Verify Provider with Pact Broker
+      - name: Deploy to EC2
         run: |
-          cd provider
-          python test_provider.py
-        env:
-          PACT_BROKER_BASE_URL: http://localhost:9292  # Update if needed
+          ssh -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+            # Pull latest images
+            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
+            docker pull ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
+            
+            # Stop and remove existing containers
+            docker stop pact-broker || true
+            docker stop consumer || true
+            docker stop provider || true
+            docker rm pact-broker || true
+            docker rm consumer || true
+            docker rm provider || true
 
+            # Run Pact Broker
+            docker run -d --name pact-broker -p 8080:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+
+            # Run Consumer
+            docker run -d --name consumer -p 5001:5000 --env PACT_BROKER_URL=http://${{ secrets.EC2_PUBLIC_IP }}:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/consumer:latest
+
+            # Run Provider
+            docker run -d --name provider -p 5002:5000 --env PACT_BROKER_URL=http://${{ secrets.EC2_PUBLIC_IP }}:8080 ${{ secrets.AWS_ECR_REPOSITORY }}/provider:latest
+          EOF
