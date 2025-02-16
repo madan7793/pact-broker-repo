@@ -27,7 +27,7 @@ jobs:
 
       - name: Start Pact Mock Server
         run: |
-          npx pact-mock-service start --port 1234 --pact-dir ./consumer/pacts &
+          npx pact-mock-service start --port 6000 --pact-dir ./consumer/pacts &
           sleep 5  # Ensure mock service is up
 
       - name: Run Consumer Pact Tests
