@@ -66,9 +66,14 @@ jobs:
         run: |
           ensure_service() {
             SERVICE_NAME=$1
+            TASK_DEFINITION=$1
+            if ! aws ecs describe-task-definition --task-definition $TASK_DEFINITION --query "taskDefinition.taskDefinitionArn" --output text &> /dev/null; then
+              echo "Task definition $TASK_DEFINITION not found. Registering..."
+              aws ecs register-task-definition --family $TASK_DEFINITION --container-definitions '[{"name":"'$TASK_DEFINITION'","image":"727646472452.dkr.ecr.us-east-1.amazonaws.com/'$TASK_DEFINITION':latest","memory":512,"cpu":256,"essential":true}]'
+            fi
             if ! aws ecs describe-services --cluster my-cluster --services $SERVICE_NAME --query "services[*].serviceName" --output text | grep -q $SERVICE_NAME; then
               echo "$SERVICE_NAME service does not exist. Creating..."
-              aws ecs create-service --cluster my-cluster --service-name $SERVICE_NAME --task-definition $SERVICE_NAME --desired-count 1 --launch-type FARGATE
+              aws ecs create-service --cluster my-cluster --service-name $SERVICE_NAME --task-definition $TASK_DEFINITION --desired-count 1 --launch-type FARGATE
             else
               echo "$SERVICE_NAME service exists."
             fi
