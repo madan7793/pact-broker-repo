@@ -1,4 +1,4 @@
-name: Pact Broker Setup with Consumer and Provider on Docker
+name: Pact Broker Setup with Consumer and Provider on AWS
 
 on:
   push:
@@ -8,57 +8,74 @@ on:
 
 jobs:
   deploy:
-    name: Deploy and Test Pact Broker, Consumer, and Provider
+    name: Deploy and Test Pact Broker, Consumer, and Provider on AWS
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Docker Compose (if not available)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
         run: |
-          if ! command -v docker-compose &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y docker-compose
-          fi
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ECR_REPOSITORY }}
 
-      - name: Start Services with Docker Compose
-        run: docker compose up -d
+      - name: Build and Push Docker Images
+        run: |
+          docker build -t pact-broker ./pact-broker
+          docker tag pact-broker:latest ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/pact-broker:latest
+          docker build -t consumer-service ./consumer
+          docker tag consumer-service:latest ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service:latest
+          docker build -t provider-service ./provider
+          docker tag provider-service:latest ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service:latest
+          docker push ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service:latest
 
-      - name: List Running Docker Containers
-        run: docker ps -a
+      - name: Deploy Services on AWS ECS
+        run: |
+          aws ecs update-service --cluster my-cluster --service pact-broker --force-new-deployment
+          aws ecs update-service --cluster my-cluster --service consumer-service --force-new-deployment
+          aws ecs update-service --cluster my-cluster --service provider-service --force-new-deployment
 
       - name: Wait for Services to Start
-        run: sleep 30
+        run: sleep 60
 
       - name: Verify Pact Broker is Running
-        run: curl -f http://localhost:9292 || (echo "Pact Broker failed to start" && exit 1)
+        run: curl -f http://pact-broker.my-domain.com || (echo "Pact Broker failed to start" && exit 1)
 
       - name: Verify Consumer Service is Running
-        run: |
-          curl -f http://localhost:3000 || (echo "Consumer service failed to start" && docker logs consumer-service && exit 1)
+        run: curl -f http://consumer.my-domain.com || (echo "Consumer service failed to start" && exit 1)
 
       - name: Verify Provider Service is Running
-        run: |
-          curl -f http://localhost:4000 || (echo "Provider service failed to start" && docker logs provider-service && exit 1)
+        run: curl -f http://provider.my-domain.com || (echo "Provider service failed to start" && exit 1)
 
       - name: Run Consumer Pact Tests
-        run: docker exec consumer-service npm test
+        run: docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service npm test
 
       - name: Publish Pact Contracts to Pact Broker
         run: |
-          docker exec consumer-service npx pact-cli publish /pacts \
+          docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/consumer-service npx pact-cli publish /pacts \
             --consumer-app-version=$(git rev-parse --short HEAD) \
-            --broker-base-url=http://pact-broker:9292
+            --broker-base-url=http://pact-broker.my-domain.com
 
       - name: Run Provider Verification Against Pact Broker
-        run: docker exec provider-service npm test
+        run: docker run --rm ${{ secrets.AWS_ECR_REPOSITORY }}/provider-service npm test
 
-      - name: Cleanup Docker Containers
+      - name: Cleanup Old Docker Images
         if: always()
-        run: docker compose down
+        run: |
+          aws ecr batch-delete-image --repository-name pact-broker --image-ids imageTag=old-tag
+          aws ecr batch-delete-image --repository-name consumer-service --image-ids imageTag=old-tag
+          aws ecr batch-delete-image --repository-name provider-service --image-ids imageTag=old-tag
 
       - name: Output Service URLs
         run: |
-          echo "Pact Broker is running at http://localhost:9292"
-          echo "Consumer Service is running at http://localhost:3000"
-          echo "Provider Service is running at http://localhost:4000"
+          echo "Pact Broker is running at http://pact-broker.my-domain.com"
+          echo "Consumer Service is running at http://consumer.my-domain.com"
+          echo "Provider Service is running at http://provider.my-domain.com"
