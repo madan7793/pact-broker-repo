@@ -6,7 +6,7 @@ const getPort = require("get-port");
 let provider;
 
 beforeAll(async () => {
-  const port = await getPort({ port: 1234 }); // Ensure the port is available
+  const port = await getPort({ port: 6000 }); // Ensure the port is available
 
   provider = new pact.Pact({
     consumer: "FrontendApp",
