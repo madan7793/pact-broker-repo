@@ -38,7 +38,7 @@ jobs:
 
       - name: Verify ECR Repositories Exist
         run: |
-          for repo in pact-broker consumer-service provider-service; do
+          for repo in pact-broker consumer provider; do
             aws ecr describe-repositories --repository-names $repo || aws ecr create-repository --repository-name $repo
           done
 
@@ -50,7 +50,7 @@ jobs:
 
       - name: Build and Push Docker Images
         run: |
-          for service in pact-broker consumer-service provider-service; do
+          for service in pact-broker consumer provider; do
             docker build -t $service ./$service || (echo "Failed to build $service image" && exit 1)
             docker tag $service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/$service:latest
             docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/$service:latest
@@ -81,12 +81,12 @@ jobs:
             fi
           }
           ensure_service pact-broker
-          ensure_service consumer-service
-          ensure_service provider-service
+          ensure_service consumer
+          ensure_service provider
 
       - name: Deploy Services on AWS ECS
         run: |
-          for service in pact-broker consumer-service provider-service; do
+          for service in pact-broker consumer provider; do
             aws ecs update-service --cluster my-cluster --service $service --force-new-deployment
           done
 
@@ -100,21 +100,21 @@ jobs:
           done
 
       - name: Run Consumer Pact Tests
-        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npm test
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer npm test
 
       - name: Publish Pact Contracts to Pact Broker
         run: |
-          docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service npx pact-cli publish /pacts \
+          docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer npx pact-cli publish /pacts \
             --consumer-app-version=$(git rev-parse --short HEAD) \
             --broker-base-url=http://pact-broker.my-domain.com
 
       - name: Run Provider Verification Against Pact Broker
-        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service npm test
+        run: docker run --rm 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider npm test
 
       - name: Cleanup Old Docker Images
         if: always()
         run: |
-          for repo in pact-broker consumer-service provider-service; do
+          for repo in pact-broker consumer provider; do
             aws ecr batch-delete-image --repository-name $repo --image-ids imageTag=old-tag
           done
 
