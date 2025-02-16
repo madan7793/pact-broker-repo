@@ -25,17 +25,23 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 727646472452.dkr.ecr.us-east-1.amazonaws.com
 
+      - name: Verify Required Directories Exist
+        run: |
+          test -d ./pact-broker || (echo "Error: ./pact-broker directory not found" && exit 1)
+          test -d ./consumer || (echo "Error: ./consumer directory not found" && exit 1)
+          test -d ./provider || (echo "Error: ./provider directory not found" && exit 1)
+
       - name: Build and Push Docker Images
         run: |
-          docker build -t pact-broker ./pact-broker
+          docker build -t pact-broker ./pact-broker || (echo "Failed to build pact-broker image" && exit 1)
           docker tag pact-broker:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
           docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/pact-broker:latest
 
-          docker build -t consumer-service ./consumer
+          docker build -t consumer-service ./consumer || (echo "Failed to build consumer-service image" && exit 1)
           docker tag consumer-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
           docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/consumer-service:latest
 
-          docker build -t provider-service ./provider
+          docker build -t provider-service ./provider || (echo "Failed to build provider-service image" && exit 1)
           docker tag provider-service:latest 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
           docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/provider-service:latest
 
