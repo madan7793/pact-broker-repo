@@ -31,6 +31,13 @@ jobs:
             echo "ECS cluster exists."
           fi
 
+      - name: Set Fargate as Cluster Capacity Provider
+        run: |
+          aws ecs put-cluster-capacity-providers \
+            --cluster my-cluster \
+            --capacity-providers FARGATE \
+            --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1
+
       - name: Force Logout and Login to Amazon ECR
         run: |
           docker logout 727646472452.dkr.ecr.us-east-1.amazonaws.com || true
@@ -69,7 +76,23 @@ jobs:
                 --requires-compatibilities FARGATE \
                 --cpu "256" \
                 --memory "512" \
-                --container-definitions '[{"name":"'$TASK_DEFINITION'","image":"727646472452.dkr.ecr.us-east-1.amazonaws.com/'$TASK_DEFINITION':latest","memory":512,"cpu":256,"essential":true,"networkMode":"awsvpc"}]'
+                --container-definitions '[
+                  {
+                    "name": "'$TASK_DEFINITION'",
+                    "image": "727646472452.dkr.ecr.us-east-1.amazonaws.com/'$TASK_DEFINITION':latest",
+                    "memory": 512,
+                    "cpu": 256,
+                    "essential": true,
+                    "logConfiguration": {
+                      "logDriver": "awslogs",
+                      "options": {
+                        "awslogs-group": "/ecs/'$TASK_DEFINITION'",
+                        "awslogs-region": "us-east-1",
+                        "awslogs-stream-prefix": "ecs"
+                      }
+                    }
+                  }
+                ]'
             fi
             if ! aws ecs describe-services --cluster my-cluster --services $SERVICE_NAME --query "services[*].serviceName" --output text | grep -q $SERVICE_NAME; then
               echo "$SERVICE_NAME service does not exist. Creating..."
