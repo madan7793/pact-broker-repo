@@ -31,13 +31,6 @@ jobs:
             echo "ECS cluster exists."
           fi
 
-      - name: Set Fargate as Cluster Capacity Provider
-        run: |
-          aws ecs put-cluster-capacity-providers \
-            --cluster my-cluster \
-            --capacity-providers FARGATE \
-            --default-capacity-provider-strategy capacityProvider=FARGATE,weight=1
-
       - name: Force Logout and Login to Amazon ECR
         run: |
           docker logout 727646472452.dkr.ecr.us-east-1.amazonaws.com || true
@@ -63,51 +56,36 @@ jobs:
             docker push 727646472452.dkr.ecr.us-east-1.amazonaws.com/$service:latest
           done
 
-      - name: Ensure ECS Services Exist
+      - name: Register and Deploy ECS Services
         run: |
-          ensure_service() {
-            SERVICE_NAME=$1
-            TASK_DEFINITION=$1
-            if ! aws ecs describe-task-definition --task-definition $TASK_DEFINITION --query "taskDefinition.taskDefinitionArn" --output text &> /dev/null; then
-              echo "Task definition $TASK_DEFINITION not found. Registering..."
-              aws ecs register-task-definition --family $TASK_DEFINITION \
-                --execution-role-arn arn:aws:iam::727646472452:role/ecsTaskExecutionRole \
-                --network-mode awsvpc \
-                --requires-compatibilities FARGATE \
-                --cpu "256" \
-                --memory "512" \
-                --container-definitions '[
-                  {
-                    "name": "'$TASK_DEFINITION'",
-                    "image": "727646472452.dkr.ecr.us-east-1.amazonaws.com/'$TASK_DEFINITION':latest",
-                    "memory": 512,
-                    "cpu": 256,
-                    "essential": true,
-                    "requiresCompatibilities": ["FARGATE"],
-                    "networkMode": "awsvpc",
-                    "logConfiguration": {
-                      "logDriver": "awslogs",
-                      "options": {
-                        "awslogs-group": "/ecs/'$TASK_DEFINITION'",
-                        "awslogs-region": "us-east-1",
-                        "awslogs-stream-prefix": "ecs"
-                      }
+          for service in pact-broker consumer provider; do
+            aws ecs register-task-definition --family $service \
+              --execution-role-arn arn:aws:iam::727646472452:role/ecsTaskExecutionRole \
+              --network-mode awsvpc \
+              --requires-compatibilities FARGATE \
+              --cpu "256" \
+              --memory "512" \
+              --container-definitions '[
+                {
+                  "name": "'$service'",
+                  "image": "727646472452.dkr.ecr.us-east-1.amazonaws.com/'$service':latest",
+                  "memory": 512,
+                  "cpu": 256,
+                  "essential": true,
+                  "logConfiguration": {
+                    "logDriver": "awslogs",
+                    "options": {
+                      "awslogs-group": "/ecs/'$service'",
+                      "awslogs-region": "us-east-1",
+                      "awslogs-stream-prefix": "ecs"
                     }
                   }
-                ]'
-            fi
-            if ! aws ecs describe-services --cluster my-cluster --services $SERVICE_NAME --query "services[*].serviceName" --output text | grep -q $SERVICE_NAME; then
-              echo "$SERVICE_NAME service does not exist. Creating..."
-              aws ecs create-service --cluster my-cluster --service-name $SERVICE_NAME \
-                --task-definition $TASK_DEFINITION --desired-count 1 --launch-type FARGATE \
-                --network-configuration "awsvpcConfiguration={subnets=[subnet-abc123,subnet-def456],securityGroups=[sg-xyz789],assignPublicIp=ENABLED}"
-            else
-              echo "$SERVICE_NAME service exists."
-            fi
-          }
-          ensure_service pact-broker
-          ensure_service consumer
-          ensure_service provider
+                }
+              ]'
+            aws ecs create-service --cluster my-cluster --service-name $service \
+              --task-definition $service --desired-count 1 --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[subnet-096f334f8d5a24458,subnet-016bc7424ba3c96db],securityGroups=[sg-0804460ade80f7baf],assignPublicIp=ENABLED}"
+          done
 
       - name: Deploy Services on AWS ECS
         run: |
