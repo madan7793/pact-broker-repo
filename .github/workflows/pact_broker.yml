@@ -73,7 +73,7 @@ jobs:
         run: |
           pact-broker can-i-deploy \
             --broker-base-url=$PACT_BROKER_URL \
-            --consumer "ConsumerService" \
+            --pacticipant "ConsumerService" \
             --version "917b4ea15bdd072b8452828e2abde37cd2df312e" \
             --to "test"
 
