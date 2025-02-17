@@ -62,14 +62,8 @@ jobs:
       - name: Install Pact Broker CLI
         run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'  # Set the Node.js version as needed
-
-      - name: Install Pact Provider Verifier using npx
-        run: |
-          npm install -g @pact-foundation/pact-provider-verifier  # Install the package globally
+      - name: Install Pact Provider Verifier Locally
+        run: npm install @pact-foundation/pact-provider-verifier# Set the Node.js version as needed
 
       - name: Run Provider Verification
         env:
