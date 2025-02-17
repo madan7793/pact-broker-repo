@@ -31,7 +31,7 @@ jobs:
         run: pytest  # Replace with actual test command
 
       - name: Install Pact Broker CLI
-        run: gem install pact_broker-client  # Install pact-broker CLI
+        run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
       - name: Publish Pact to Pact Broker
         env:
