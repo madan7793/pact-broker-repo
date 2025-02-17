@@ -80,7 +80,7 @@ jobs:
 
     steps:
       - name: Install Pact Broker CLI
-        run: gem install pact_broker-cli  # Install pact-broker CLI
+        run: gem install pact_broker-client  # Install pact-broker CLI
 
       - name: Mark Pact as Verified in Pact Broker
         env:
