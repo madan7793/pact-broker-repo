@@ -97,6 +97,7 @@ jobs:
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
           pact-broker can-i-deploy \
+            --broker-base-url=$PACT_BROKER_URL \
             --pacticipant "Provider" \
             --latest \
             --to "production"
