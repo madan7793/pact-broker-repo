@@ -20,21 +20,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.13
+          python-version: 3.10
 
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
+          pip install pytest  # Ensure pytest is installed
 
       - name: Run Consumer Tests & Generate Pact
         run: pytest  # Replace with actual test command
 
+      - name: Install Pact Broker CLI
+        run: gem install pact_broker-cli  # Install pact-broker CLI
+
       - name: Publish Pact to Pact Broker
+        env:
+          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          export PACT_BROKER_URL=https://http://54.80.157.126:9292/
-          export PACT_BROKER_USERNAME=${{ secrets.PACT_BROKER_USERNAME }}
-          export PACT_BROKER_PASSWORD=${{ secrets.PACT_BROKER_PASSWORD }}
-          pact-broker publish pacts --broker-base-url $PACT_BROKER_URL --consumer-app-version $GITHUB_SHA
+          pact-broker publish pacts \
+            --broker-base-url=$PACT_BROKER_URL \
+            --consumer-app-version=$GITHUB_SHA
 
   provider-verification:
     name: Run Provider Verification
@@ -53,13 +60,18 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
+          pip install pytest  # Ensure pytest is installed
+
+      - name: Install Pact Broker CLI
+        run: gem install pact_broker-cli  # Install pact-broker CLI
 
       - name: Run Provider Verification
+        env:
+          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          export PACT_BROKER_URL=https://http://54.80.157.126:9292/
-          export PACT_BROKER_USERNAME=${{ secrets.PACT_BROKER_USERNAME }}
-          export PACT_BROKER_PASSWORD=${{ secrets.PACT_BROKER_PASSWORD }}
-          pytest --pact-broker-url=$PACT_BROKER_URL  # Modify based on your verification setup
+          pytest --pact-broker-url=$PACT_BROKER_URL  # Modify based on verification setup
 
   pact-verification:
     name: Mark Pact as Verified
@@ -67,9 +79,16 @@ jobs:
     needs: provider-verification
 
     steps:
+      - name: Install Pact Broker CLI
+        run: gem install pact_broker-cli  # Install pact-broker CLI
+
       - name: Mark Pact as Verified in Pact Broker
+        env:
+          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          export PACT_BROKER_URL=https://your-pact-broker.com
-          export PACT_BROKER_USERNAME=${{ secrets.PACT_BROKER_USERNAME }}
-          export PACT_BROKER_PASSWORD=${{ secrets.PACT_BROKER_PASSWORD }}
-          pact-broker can-i-deploy --pacticipant "Provider" --latest --to "production"
+          pact-broker can-i-deploy \
+            --pacticipant "Provider" \
+            --latest \
+            --to "production"
