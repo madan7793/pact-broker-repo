@@ -71,7 +71,7 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-broker can-i-deploy --broker-base-url=$PACT_BROKER_URL --pacticipant "ProviderService" --latest
+          pact-broker can-i-deploy --broker-base-url=$PACT_BROKER_URL --pacticipant "ProviderService" --version "5556b8149bf8bac76bc30f50a8a2dd4c22c85f30" --to "test"
 
   pact-verification:
     name: Mark Pact as Verified
