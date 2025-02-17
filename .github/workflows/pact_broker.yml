@@ -26,7 +26,6 @@ jobs:
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
           pip install pytest  # Ensure pytest is installed
-
       - name: Run Consumer Tests & Generate Pact
         run: pytest  # Replace with actual test command
 
@@ -42,7 +41,6 @@ jobs:
           pact-broker publish pacts \
             --broker-base-url=$PACT_BROKER_URL \
             --consumer-app-version=$GITHUB_SHA
-
   provider-verification:
     name: Run Provider Verification
     runs-on: ubuntu-latest
@@ -61,14 +59,8 @@ jobs:
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
           pip install pytest  # Ensure pytest is installed
-
       - name: Install Pact Broker CLI
-        run: |
-          curl -sSL https://github.com/pact-foundation/pact-ruby-standalone/releases/download/v1.94.0/pact-1.94.0-linux-x86_64.tar.gz -o pact.tar.gz
-          tar -xzf pact.tar.gz
-          sudo mv pact /usr/local/bin
-        shell: bash
-
+        run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
       - name: Run Provider Verification
         env:
@@ -77,7 +69,6 @@ jobs:
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
           pact-broker pacts --consumer ConsumerService  --provider ProviderService  --broker-base-url=$PACT_BROKER_URL
-
   pact-verification:
     name: Mark Pact as Verified
     runs-on: ubuntu-latest
