@@ -55,7 +55,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.10
+          python-version: 3.13
 
       - name: Install Dependencies
         run: |
@@ -63,7 +63,7 @@ jobs:
           pip install pytest  # Ensure pytest is installed
 
       - name: Install Pact Broker CLI
-        run: gem install pact_broker-cli  # Install pact-broker CLI
+        run: sudo gem install pact_broker-cli  # Install pact-broker CLI
 
       - name: Run Provider Verification
         env:
@@ -84,7 +84,7 @@ jobs:
 
       - name: Mark Pact as Verified in Pact Broker
         env:
-          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
