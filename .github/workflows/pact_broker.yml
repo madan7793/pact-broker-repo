@@ -71,7 +71,7 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pytest --pact-broker-url=$PACT_BROKER_URL  # Modify based on verification setup
+          pact-provider-verifier pacts --broker-base-url $PACT_BROKER_URL  # Modify based on verification setup
 
   pact-verification:
     name: Mark Pact as Verified
