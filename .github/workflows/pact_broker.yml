@@ -62,18 +62,13 @@ jobs:
       - name: Install Pact Broker CLI
         run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
-      - name: Install Node.js and Pact Provider Verifier
-        run: |
-          sudo apt-get install -y nodejs npm  # Install Node.js and npm
-          npm install -g @pact-foundation/pact-provider-verifier 
-
       - name: Run Provider Verification
         env:
           PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-provider-verifier pacts --broker-base-url $PACT_BROKER_URL  # Modify based on verification setup
+          npx @pact-foundation/pact-provider-verifier pacts --broker-base-url=$PACT_BROKER_URL  # Modify based on verification setup
   pact-verification:
     name: Mark Pact as Verified
     runs-on: ubuntu-latest
