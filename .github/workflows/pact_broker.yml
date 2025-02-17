@@ -63,7 +63,7 @@ jobs:
           pip install pytest  # Ensure pytest is installed
 
       - name: Install Pact Broker CLI
-        run: sudo gem install pact-broker-client  # Install pact-broker CLI
+        run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
       - name: Run Provider Verification
         env:
@@ -80,7 +80,7 @@ jobs:
 
     steps:
       - name: Install Pact Broker CLI
-        run: sudo gem install pact-broker-client  # Install pact-broker CLI
+        run: sudo gem install pact_broker-client  # Install pact-broker CLI
 
       - name: Mark Pact as Verified in Pact Broker
         env:
