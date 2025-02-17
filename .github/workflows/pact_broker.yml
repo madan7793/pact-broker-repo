@@ -63,7 +63,10 @@ jobs:
           pip install pytest  # Ensure pytest is installed
 
       - name: Install Pact Broker CLI
-        run: sudo gem install pact_broker-client  # Install pact-broker CLI
+        run: |
+          curl -sSL https://github.com/pact-foundation/pact-ruby-standalone/releases/download/v1.94.0/pact-1.94.0-linux-x86_64.tar.gz | tar xz
+          sudo mv pact /usr/local/bin
+
 
       - name: Run Provider Verification
         env:
