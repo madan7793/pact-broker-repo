@@ -26,7 +26,6 @@ jobs:
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
           pip install pytest  # Ensure pytest is installed
-
       - name: Run Consumer Tests & Generate Pact
         run: pytest  # Replace with actual test command
 
@@ -42,7 +41,6 @@ jobs:
           pact-broker publish pacts \
             --broker-base-url=$PACT_BROKER_URL \
             --consumer-app-version=$GITHUB_SHA
-
   provider-verification:
     name: Run Provider Verification
     runs-on: ubuntu-latest
@@ -61,9 +59,11 @@ jobs:
         run: |
           pip install -r requirements.txt  # Ensure `pact-python` is included
           pip install pytest  # Ensure pytest is installed
-
       - name: Install Pact Broker CLI
         run: sudo gem install pact_broker-client  # Install pact-broker CLI
+
+      - name: Install Pact Provider Verifier
+        run: npm install -g @pact-foundation/pact-provider-verifier
 
       - name: Run Provider Verification
         env:
@@ -72,7 +72,6 @@ jobs:
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
           pact-provider-verifier pacts --broker-base-url $PACT_BROKER_URL  # Modify based on verification setup
-
   pact-verification:
     name: Mark Pact as Verified
     runs-on: ubuntu-latest
