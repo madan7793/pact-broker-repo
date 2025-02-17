@@ -35,7 +35,7 @@ jobs:
 
       - name: Publish Pact to Pact Broker
         env:
-          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run Provider Verification
         env:
-          PACT_BROKER_URL: http://54.80.157.126:9292/
+          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
