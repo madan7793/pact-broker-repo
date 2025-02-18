@@ -68,7 +68,8 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-broker publish pacts -b, --broker-base-url=BROKER_BASE_URL --consumer-app-version "testing"
+          pact-broker can-i-deploy --broker-base-url http://BROKER_BASE_URL --pacticipant "provider" --latest --to "development"
+          
   pact-verification:
     name: Mark Pact as Verified
     runs-on: ubuntu-latest
