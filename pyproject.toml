@@ -17,7 +17,8 @@ dependencies = [
     "pact-broker-client",
     "yarl",  # Add yarl as a dependency
     "testcontainers",
-    "mock"
+    "mock",
+    pytest-xdist = "^2.5.0"
 ]
 
 [tool.hatch.envs.test]
