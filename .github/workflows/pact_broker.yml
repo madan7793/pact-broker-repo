@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  STABLE_PYTHON_VERSION: '3.10'  # Match the version in pyproject.toml
+  STABLE_PYTHON_VERSION: '3.13'  # Match the version in pyproject.toml
   PYTEST_ADDOPTS: --color=yes
   PACT_BROKER_URL: 'http://54.80.157.126:9292/'
   PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
