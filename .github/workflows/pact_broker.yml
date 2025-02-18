@@ -41,7 +41,11 @@ jobs:
           #pact-broker publish pacts \
             #--broker-base-url=$PACT_BROKER_URL \
            # --consumer-app-version=$GITHUB_SHA
-          pact-broker can-i-deploy --pacticipant ConsumerService --version 9bc1b2e28ff62cba5a8eda2be44ee287d2f73d38 --broker-base-url http://54.80.157.126:9292
+          pact-verifier --provider-base-url=http://54.80.157.126:8080 \
+            --pact-broker-base-url=http://54.80.157.126:9292 \
+            --provider-app-version=$(git rev-parse --short HEAD) \
+            --publish-verification-results
+
 
 
 
