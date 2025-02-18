@@ -69,7 +69,7 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-broker list pacts --broker-base-url http://54.80.157.126:9292
+          pact-broker list_latest_pact_versions pacts --broker-base-url http://54.80.157.126:9292
 
 
 
