@@ -42,7 +42,7 @@ jobs:
             #--broker-base-url=$PACT_BROKER_URL \
            # --consumer-app-version=$GITHUB_SHA
           pact-verifier --provider-base-url=http://54.80.157.126:8080 \
-            --pact-broker-base-url=http://54.80.157.126:9292 \
+            ----pact-broker-url=http://54.80.157.126:9292 \
             --provider-app-version=$(git rev-parse --short HEAD) \
             --publish-verification-results
 
