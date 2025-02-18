@@ -70,7 +70,7 @@ jobs:
         run: |
           pact-broker can-i-deploy \
             --broker-base-url=$PACT_BROKER_URL \
-            --pacticipant "ProviderService" \
+            --pacticipant "ConsumerService" \
             --latest \
             --to "production"
 
