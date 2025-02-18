@@ -41,6 +41,12 @@ jobs:
           pact-broker publish pacts \
             --broker-base-url=$PACT_BROKER_URL \
             --consumer-app-version=$GITHUB_SHA
+          pact-broker publish-verification-results \
+            --broker-base-url=$PACT_BROKER_URL \
+            --provider "ProviderService" \
+            --provider-app-version="1.0.0" \
+            --success
+
   provider-verification:
     name: Run Provider Verification
     runs-on: ubuntu-latest
