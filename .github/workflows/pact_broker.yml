@@ -1,93 +1,191 @@
-name: Pact Contract Testing
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-
-jobs:
-  consumer-tests:
-    name: Run Consumer Tests & Publish Pact
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Consumer Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.13
-
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt  # Ensure `pact-python` is included
-          pip install pytest  # Ensure pytest is installed
-      - name: Run Consumer Tests & Generate Pact
-        run: pytest  # Replace with actual test command
-
-      - name: Install Pact Broker CLI
-        run: sudo gem install pact_broker-client  # Install pact-broker CLI
-
-      - name: Publish Pact to Pact Broker
-        env:
-          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
-          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
-          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
-        run: |
-          pact-broker publish pacts \
-            --broker-base-url=$PACT_BROKER_URL \
-            --consumer-app-version=$GITHUB_SHA
-  provider-verification:
-    name: Run Provider Verification
-    runs-on: ubuntu-latest
-    needs: consumer-tests
-
-    steps:
-      - name: Checkout Provider Code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.13
-
-      - name: Install Dependencies
-        run: |
-          pip install -r requirements.txt  # Ensure `pact-python` is included
-          pip install pytest  # Ensure pytest is installed
-      - name: Install Pact Broker CLI
-        run: sudo gem install pact_broker-client  # Install pact-broker CLI
-
-      - name: Run Provider Verification
-        env:
-          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
-          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
-          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
-        run: |
-          pact-verifier pacts --pact-broker-url=$PACT_BROKER_URL 
-            
-
-  pact-verification:
-    name: Mark Pact as Verified
-    runs-on: ubuntu-latest
-    needs: provider-verification
-
-    steps:
-      - name: Install Pact Broker CLI
-        run: sudo gem install pact_broker-client  # Install pact-broker CLI
-
-      - name: Mark Pact as Verified in Pact Broker
-        env:
-          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
-          PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
-          PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
-        run: |
-          pact-broker can-i-deploy \
-            --broker-base-url=$PACT_BROKER_URL \
-            --pacticipant "Provider" \
-            --latest \
-            --to "production"
+---
+  name: test 
+  
+  on:
+    push:
+      branches:
+        - main1
+    pull_request:
+      branches:
+        - main1
+  
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+    cancel-in-progress: true
+  
+  env:
+    STABLE_PYTHON_VERSION: '3.13'
+    PYTEST_ADDOPTS: --color=yes
+    HATCH_VERBOSE: '1'
+    FORCE_COLOR: '1'
+    PACT_BROKER_URL: 'http://54.80.157.126:9292/'
+    PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+    PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+  
+  jobs:
+    complete:
+      name: Test completion check
+      if: always()
+  
+      permissions:
+        contents: none
+  
+      runs-on: ubuntu-latest
+      needs:
+        - test-linux
+        - example
+        - format
+        - lint
+        - typecheck
+        - spelling
+        - pre-commit
+  
+      steps:
+        - name: Failed
+          run: exit 1
+          if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+  
+    test-linux:
+      name: Test Python ${{ matrix.python-version }} on Linux
+      runs-on: ubuntu-latest
+      strategy:
+        fail-fast: false
+        matrix:
+          python-version:
+            - '3.9'
+            - '3.10'
+            - '3.11'
+            - '3.12'
+            - '3.13'
+      
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install Python
+          run: uv python install ${{ matrix.python-version }}
+  
+        - name: Install Hatch
+          run: uv tool install hatch
+  
+        - name: Run tests
+          env:
+            PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+            PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+          run: hatch run test --broker-url=${{ env.PACT_BROKER_URL }} --container
+  
+    example:
+      name: Example
+      runs-on: ubuntu-latest
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install Python
+          run: uv python install ${{ env.STABLE_PYTHON_VERSION }}
+  
+        - name: Install Hatch
+          run: uv tool install hatch
+  
+        - name: Run examples
+          env:
+            PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+            PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+          run: hatch run example --broker-url=${{ env.PACT_BROKER_URL }}
+  
+    format:
+      name: Format
+      runs-on: ubuntu-latest
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install Python
+          run: uv python install ${{ env.STABLE_PYTHON_VERSION }}
+  
+        - name: Install Hatch
+          run: uv tool install hatch
+  
+        - name: Format
+          run: hatch run format
+  
+    lint:
+      name: Lint
+      runs-on: ubuntu-latest
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install Python
+          run: uv python install ${{ env.STABLE_PYTHON_VERSION }}
+  
+        - name: Install Hatch
+          run: uv tool install hatch
+  
+        - name: Lint
+          run: hatch run lint
+  
+    typecheck:
+      name: Typecheck
+      runs-on: ubuntu-latest
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install Python
+          run: uv python install ${{ env.STABLE_PYTHON_VERSION }}
+  
+        - name: Install Hatch
+          run: uv tool install hatch
+  
+        - name: Typecheck
+          run: hatch run typecheck
+  
+    spelling:
+      name: Spell check
+      runs-on: ubuntu-latest
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Spell Check
+          uses: crate-ci/typos@v1.29.7
+  
+    pre-commit:
+      name: Pre-commit
+      runs-on: ubuntu-latest
+  
+      env:
+        PRE_COMMIT_HOME: ${{ github.workspace }}/.pre-commit
+  
+      steps:
+        - uses: actions/checkout@v4
+  
+        - name: Cache pre-commit
+          uses: actions/cache@v4
+          with:
+            path: ${{ env.PRE_COMMIT_HOME }}
+            key: ${{ runner.os }}-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+  
+        - name: Set up uv
+          uses: astral-sh/setup-uv@v5
+  
+        - name: Install pre-commit
+          run: uv tool install pre-commit
+  
+        - name: Run pre-commit
+          run: pre-commit run --show-diff-on-failure --color=always --all-files
