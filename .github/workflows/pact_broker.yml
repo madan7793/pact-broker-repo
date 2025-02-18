@@ -41,11 +41,6 @@ jobs:
           pact-broker publish pacts \
             --broker-base-url=$PACT_BROKER_URL \
             --consumer-app-version=$GITHUB_SHA
-          pact-broker publish-verification-results \
-            --broker-base-url=$PACT_BROKER_URL \
-            --provider "ProviderService" \
-            --provider-app-version="1.0.0" \
-            --success
 
   provider-verification:
     name: Run Provider Verification
@@ -74,7 +69,11 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact verify ./pacts --broker-base-url $PACT_BROKER_URL 
+          pact-verifier \
+            --provider-base-url=http://localhost:8080 \
+            --pact-broker-base-url=*** \
+            --provider-app-version="<PROVIDER_VERSION>"
+ 
 
   pact-verification:
     name: Mark Pact as Verified
