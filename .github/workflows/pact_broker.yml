@@ -69,7 +69,7 @@ jobs:
 
       - name: Install dependencies with Poetry
         run: |
-          poetry install --no-interaction --no-dev
+          poetry install --no-interaction 
 
       - name: Run tests
         env:
