@@ -71,8 +71,8 @@ jobs:
         run: |
           pact-verifier \
             --provider-base-url=http://localhost:8080 \
-            --pact-broker-base-url=*** \
-            --provider-app-version="<PROVIDER_VERSION>"
+            --pact-broker-url=$PACT_BROKER_URL
+          
  
 
   pact-verification:
