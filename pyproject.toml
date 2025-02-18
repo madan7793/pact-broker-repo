@@ -15,8 +15,9 @@ dependencies = [
     "pact-python",
     "requests",
     "pact-broker-client",
-    "testcontainers",  # Add testcontainers dependency
-    "mock"             # Add mock dependency for mocking in tests
+    "yarl",  # Add yarl as a dependency
+    "testcontainers",
+    "mock"
 ]
 
 [tool.hatch.envs.test]
