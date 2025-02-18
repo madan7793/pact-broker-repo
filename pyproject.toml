@@ -25,3 +25,8 @@ dependencies = [
 
 [tool.hatch.envs.test.matrix]
 python = ["3.13"]
+
+# Adding package definition for your project
+[tool.hatch.package]
+# This specifies your package directory if it's named differently
+include = ["my_project"]
