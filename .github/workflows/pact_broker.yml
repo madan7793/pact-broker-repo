@@ -90,8 +90,9 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-broker can-i-deploy \
-            --broker-base-url=$PACT_BROKER_URL \
-            --pacticipant "Provider" \
-            --latest \
-            --to "production"
+          pact verify ./pacts \
+           --provider ProviderService \
+           --provider-base-url http://54.80.157.126:8080 \
+           --pact-broker-url http://54.80.157.126:9292 \
+           --provider-app-version 76bd07a \
+           --publish-verification-results
