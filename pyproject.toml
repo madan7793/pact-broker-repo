@@ -19,6 +19,9 @@ dependencies = [
     "testcontainers",
     "mock",
     "pytest-xdist"
+    "uvicorn"
+    "flask" 
+    
 ]
 
 [tool.hatch.envs.test]
