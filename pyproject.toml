@@ -14,13 +14,17 @@ dependencies = [
     "pytest",
     "pact-python",
     "requests",
-    "pact-broker-client"
+    "pact-broker-client",
+    "testcontainers",  # Add testcontainers dependency
+    "mock"             # Add mock dependency for mocking in tests
 ]
 
 [tool.hatch.envs.test]
 dependencies = [
     "pytest",
-    "pact-python"
+    "pact-python",
+    "testcontainers",  # Add testcontainers to the test environment
+    "mock"             # Add mock to the test environment
 ]
 
 [tool.hatch.envs.test.matrix]
@@ -28,5 +32,16 @@ python = ["3.13"]
 
 # Adding package definition for your project
 [tool.hatch.package]
-# This specifies your package directory if it's named differently
+# Specify the directory or package to include, usually the main project directory
+# If your code is inside 'src' directory, change it to ["src/my_project"]
 include = ["my_project"]
+
+# Optional: Include other necessary files for your package
+# This section ensures additional files like LICENSE or README are included
+# You can adjust as needed.
+# include = ["my_project", "LICENSE", "README.md"]
+
+# Optional: Exclude unwanted files from the package distribution
+# You can define exclusions for files like tests or docs if needed.
+# exclude = ["tests", "docs"]
+
