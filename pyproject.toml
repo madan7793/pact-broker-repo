@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "my_project"
+version = "0.1.0"
+description = "Pact contract testing setup"
+authors = [
+    { name = "Your Name", email = "your.email@example.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pytest",
+    "pact-python",
+    "requests",
+    "pact-broker-client"
+]
+
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest",
+    "pact-python"
+]
+
+[tool.hatch.envs.test.matrix]
+python = ["3.13"]
