@@ -3,10 +3,10 @@ name: Test Pact Contract
 on:
   push:
     branches:
-      - pact-broker-AB-1440
+      - main
   pull_request:
     branches:
-      - pact-broker-AB-1440
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
@@ -58,11 +58,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Poetry
-        uses: python-poetry/poetry-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
     
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
       - name: Install dependencies with Poetry
         run: |
           poetry install --no-interaction --no-dev
@@ -81,10 +85,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Poetry
-        uses: python-poetry/poetry-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install dependencies with Poetry
         run: |
@@ -104,10 +112,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Poetry
-        uses: python-poetry/poetry-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install dependencies with Poetry
         run: |
@@ -124,10 +136,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Poetry
-        uses: python-poetry/poetry-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install dependencies with Poetry
         run: |
@@ -144,10 +160,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Poetry
-        uses: python-poetry/poetry-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ env.STABLE_PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install dependencies with Poetry
         run: |
