@@ -3,10 +3,10 @@ name: Test Pact Contract
 on:
   push:
     branches:
-      - main
+      - pact-broker-AB-1440
   pull_request:
     branches:
-      - main
+      - pact-broker-AB-1440
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
