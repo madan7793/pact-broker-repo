@@ -38,9 +38,9 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          #pact-broker publish pacts \
-            #--broker-base-url=$PACT_BROKER_URL \
-           # --consumer-app-version=$GITHUB_SHA
+          pact-broker publish pacts \
+            --broker-base-url=$PACT_BROKER_URL \
+            --consumer-app-version=$GITHUB_SHA
           pact-verifier ./pacts  --provider ProviderService --provider-base-url=http://54.80.157.126:8080 \
             --pact-broker-url=http://54.80.157.126:9292 \
             --provider-app-version=$(git rev-parse --short HEAD) \
