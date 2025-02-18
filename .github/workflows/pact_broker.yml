@@ -68,11 +68,8 @@ jobs:
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
-          pact-verifier \
-            --pact-broker-url=$PACT_BROKER_URL \
-            --broker-username=$PACT_BROKER_USERNAME \
-            --broker-password=$PACT_BROKER_PASSWORD \
-            --provider=ProviderService
+          pact-verifier pacts --pact-broker-url=$PACT_BROKER_URL 
+            
 
   pact-verification:
     name: Mark Pact as Verified
