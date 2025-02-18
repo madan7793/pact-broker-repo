@@ -18,7 +18,7 @@ dependencies = [
     "yarl",  # Add yarl as a dependency
     "testcontainers",
     "mock",
-    "pytest-xdist=^2.5.0"
+    "pytest-xdist"
 ]
 
 [tool.hatch.envs.test]
