@@ -10,43 +10,40 @@ authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
 requires-python = ">=3.13"
+
 dependencies = [
     "pytest",
     "pact-python",
     "requests",
     "pact-broker-client",
-    "yarl",  # Add yarl as a dependency
-    "testcontainers",
-    "mock",
-    "pytest-xdist",
-    "uvicorn",
-    "flask" 
-    
+    "yarl",               # Required for URL handling
+    "testcontainers",      # For containerized tests
+    "mock",                # For mocking objects in tests
+    "pytest-xdist",       # For parallel test execution
+    "uvicorn",             # For running FastAPI server
+    "flask"                # For Flask-based provider
 ]
 
 [tool.hatch.envs.test]
 dependencies = [
     "pytest",
     "pact-python",
-    "testcontainers",  # Add testcontainers to the test environment
-    "mock"             # Add mock to the test environment
+    "testcontainers",  # For containerized tests in the test environment
+    "mock"             # For mocking in tests
 ]
 
 [tool.hatch.envs.test.matrix]
 python = ["3.13"]
 
-# Adding package definition for your project
 [tool.hatch.package]
 # Specify the directory or package to include, usually the main project directory
-# If your code is inside 'src' directory, change it to ["src/my_project"]
+# If your code is inside the 'src' directory, adjust the include path accordingly.
 include = ["my_project"]
 
-# Optional: Include other necessary files for your package
-# This section ensures additional files like LICENSE or README are included
-# You can adjust as needed.
+# Optional: Include additional files for packaging
+# You can adjust this to include files like LICENSE or README.md
 # include = ["my_project", "LICENSE", "README.md"]
 
 # Optional: Exclude unwanted files from the package distribution
-# You can define exclusions for files like tests or docs if needed.
+# Exclude files like tests or docs if needed
 # exclude = ["tests", "docs"]
-
