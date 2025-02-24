@@ -34,7 +34,7 @@ jobs:
 
       - name: Publish Pact to Pact Broker
         env:
-          PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL }}
+          PACT_BROKER_URL: "http://3.84.214.123:9292/"
           PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
           PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
         run: |
